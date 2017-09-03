@@ -11,18 +11,32 @@
 #include <ESP8266WebServer.h>
 #include <ESP8266mDNS.h>
 
-const IPAddress remote_ip(192, 168, 1, 1);
-//IPAddress remote_ip;
+IPAddress remote_ip;
+
 int networkId = -1;
 
 LiquidCrystal lcd(0, 2, 4, 5, 1, 3);
+
+byte lockedSymbol[8] = {
+  B00100,
+  B01010,
+  B01010,
+  B11111,
+  B11011,
+  B11011,
+  B01110,
+};
 
 // This strange shield pinout
 // 3 1 16 5 4 X X X       0 2 X X X X GND
 
 int BTN = 16; // Button pin
 
-void(* Reboot) (void) = 0;
+//void(* Reboot) (void) = 0;
+void Reboot()
+{
+  ESP.restart();
+}
 
 void ChooseWiFi(int count)
 {
@@ -40,12 +54,17 @@ void ChooseWiFi(int count)
     lcd.setCursor(0,1);
     lcd.print(i+1);
     lcd.print(") ");
+    if (WiFi.encryptionType(i) != ENC_TYPE_NONE) // ENC_TYPE_WEP (WEP) ENC_TYPE_TKIP (WPA) ENC_TYPE_CCMP (WPA2) ENC_TYPE_AUTO (AUTO)
+    {
+      lcd.write(1);
+      lcd.print(" ");
+    }
     lcd.print(WiFi.SSID(i));
 
     delay(100);
     while(digitalRead(BTN))
       delay(5);
-
+      
     if (digitalRead(BTN) == LOW)
     {
       i++;
@@ -72,7 +91,7 @@ void Connect()
   lcd.print("Connecting");
 
   // Connecting
-  WiFi.begin(WiFi.SSID(networkId).c_str(), "");
+  WiFi.begin(WiFi.SSID(networkId).c_str());
 
   int timeout = 40;
   // Wait for connection establishing
@@ -97,8 +116,15 @@ void Connect()
   }
 
   lcd.print(">  Connected.  <");
-  //remote_ip = WiFi.localIP();
+  remote_ip = WiFi.gatewayIP();
   
+  delay(750);
+
+  lcd.clear();
+  lcd.print("Gateway:");
+  lcd.setCursor(0,1);
+  lcd.print(remote_ip);
+
   delay(750);
 }
 
@@ -140,6 +166,7 @@ void setup()
   // Start LCD with Code Page #1
   lcd.begin(16, 2);
   lcd.command(0b101010);
+  lcd.createChar(1, lockedSymbol);
   lcd.clear();
   lcd.setCursor(0,0);
 
